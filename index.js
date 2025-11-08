@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const app = express();
 const cors = require("cors");
@@ -7,8 +8,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 app.use(cors());
 app.use(express.json());
 
-const uri =
-  "mongodb+srv://Asigement-10:ctbYc8XF84G8hd4R@cluster0.gby4cz6.mongodb.net/finEaseDB?retryWrites=true&w=majority";
+const uri = process.env.MONGO_URI
 
 const client = new MongoClient(uri, {
   serverApi: {
