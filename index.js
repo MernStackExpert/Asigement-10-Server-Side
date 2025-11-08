@@ -1,17 +1,17 @@
 const express = require("express");
 const app = express();
-const cors = require('cors');
+const cors = require("cors");
 const port = process.env.PORT || 3000;
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // middle ware
 
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 ///
 
-  const uri = "mongodb+srv://Asigement-10:ctbYc8XF84G8hd4R@cluster0.gby4cz6.mongodb.net/finEaseDB?retryWrites=true&w=majority";
-
+const uri =
+  "mongodb+srv://Asigement-10:ctbYc8XF84G8hd4R@cluster0.gby4cz6.mongodb.net/finEaseDB?retryWrites=true&w=majority";
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -31,8 +31,76 @@ app.get("/", (req, res) => {
 // mongo db
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+    const db = client.db("Asigement-10");
+    const transactionsCollection = db.collection("transactions");
+
+    // get
+    app.get("/transactions", async (req, res) => {
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query = { userEmail: email };
+      }
+      const transactions = await transactionsCollection.find(query).toArray();
+      res.send(transactions);
+    });
+
+    //post
+    app.post("/transactions", async (req, res) => {
+      const data = req.body;
+      const result = await transactionsCollection.insertOne(data);
+      res.send(result);
+    });
+
+    // Update
+    app.patch("/transactions/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const result = await transactionsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedData }
+      );
+      res.send(result);
+    });
+
+    app.get("/transactions/:id", async (req, res) => {
+      const id = req.params.id;
+      try {
+        const transaction = await transactionsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        if (!transaction) {
+          return res.status(404).send({ message: "Transaction not found" });
+        }
+        const categoryTotalAgg = await transactionsCollection
+          .aggregate([
+            {
+              $match: {
+                category: transaction.category,
+                userEmail: transaction.userEmail,
+              },
+            },
+            { $group: { _id: "$category", total: { $sum: "$amount" } } },
+          ])
+          .toArray();
+        const categoryTotal = categoryTotalAgg[0]?.total || 0;
+
+        res.send({ transaction, categoryTotal });
+      } catch (error) {
+        res.status(500).send({ message: "Server Error" });
+      }
+    });
+
+    // Delete
+    app.delete("/transactions/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await transactionsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
@@ -48,5 +116,3 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
-
-// ctbYc8XF84G8hd4R
