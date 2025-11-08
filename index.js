@@ -64,42 +64,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/transactions/:id", async (req, res) => {
-      const id = req.params.id;
-      try {
-        const transaction = await transactionsCollection.findOne({
-          _id: new ObjectId(id),
-        });
-        if (!transaction) {
-          return res.status(404).send({ message: "Transaction not found" });
-        }
-        const categoryTotalAgg = await transactionsCollection
-          .aggregate([
-            {
-              $match: {
-                category: transaction.category,
-                userEmail: transaction.userEmail,
-              },
-            },
-            { $group: { _id: "$category", total: { $sum: "$amount" } } },
-          ])
-          .toArray();
-        const categoryTotal = categoryTotalAgg[0]?.total || 0;
 
-        res.send({ transaction, categoryTotal });
-      } catch (error) {
-        res.status(500).send({ message: "Server Error" });
-      }
-    });
-
-    // Delete
-    app.delete("/transactions/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await transactionsCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
-    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
