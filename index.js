@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 const express = require("express");
 const app = express();
 const cors = require("cors");
@@ -11,29 +11,36 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 app.use(cors());
 app.use(express.json());
 
-
-const serviceAccount = require("path/to/serviceAccountKey.json");
-
+// firebase admin sdk
+const decoded = Buffer.from(process.env.FIREBASE_SERVICE_KEY, "base64").toString("utf8");
+const serviceAccount = JSON.parse(decoded);
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
+const verifyFirebaseToken = async (req, res, next) => {
 
-
-const verifyFirebaseToken = (req , res , next) => {
-  if(!req.headers.authorization){
-    return res.status(401).send({message: 'unauthorized access'})
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: "unauthorized access" });
   }
-  const token = req.headers.authorization.split(' ')[1]
+  const token = req.headers.authorization.split(" ")[1];
 
-  if(!token){
-    return res.status(401).send({message: 'unauthorized access'})
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
   }
 
-  next()
-}
+  try {
+    const userInfo = await admin.auth().verifyIdToken(token);
+    req.token_email = userInfo.email;
+    console.log(userInfo)
+    next();
+  } catch {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
 
-const uri = process.env.MONGO_URI
+};
+
+const uri = process.env.MONGO_URI;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -53,13 +60,16 @@ async function run() {
     const db = client.db("Asigement-10");
     const transactionsCollection = db.collection("transactions");
 
-    app.get("/transactions", verifyFirebaseToken , async (req, res) => {
+    app.get("/transactions", verifyFirebaseToken,   async (req, res) => {
       const email = req.query.email;
       const sortField = req.query.sort || "date";
       const sortOrder = req.query.order || "desc";
 
       let query = {};
       if (email) {
+        if(email !== req.token_email){
+              return res.status(403).send({ message: "Forbidden Access" });
+        }
         query = { userEmail: email };
       }
 
@@ -77,7 +87,7 @@ async function run() {
       }
     });
 
-    app.post("/transactions", verifyFirebaseToken , async (req, res) => {
+    app.post("/transactions",  async (req, res) => {
       const data = req.body;
       const result = await transactionsCollection.insertOne(data);
       res.send(result);
@@ -93,7 +103,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/transactions/:id", verifyFirebaseToken , async (req, res) => {
+    app.get("/transactions/:id",  async (req, res) => {
       const id = req.params.id;
       try {
         const transaction = await transactionsCollection.findOne({
