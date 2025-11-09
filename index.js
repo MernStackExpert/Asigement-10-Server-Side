@@ -3,10 +3,35 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const port = process.env.PORT || 3000;
+const admin = require("firebase-admin");
+
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
+// middleware
 app.use(cors());
 app.use(express.json());
+
+
+const serviceAccount = require("path/to/serviceAccountKey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+
+
+const verifyFirebaseToken = (req , res , next) => {
+  if(!req.headers.authorization){
+    return res.status(401).send({message: 'unauthorized access'})
+  }
+  const token = req.headers.authorization.split(' ')[1]
+
+  if(!token){
+    return res.status(401).send({message: 'unauthorized access'})
+  }
+
+  next()
+}
 
 const uri = process.env.MONGO_URI
 
@@ -28,7 +53,7 @@ async function run() {
     const db = client.db("Asigement-10");
     const transactionsCollection = db.collection("transactions");
 
-    app.get("/transactions", async (req, res) => {
+    app.get("/transactions", verifyFirebaseToken , async (req, res) => {
       const email = req.query.email;
       const sortField = req.query.sort || "date";
       const sortOrder = req.query.order || "desc";
@@ -52,7 +77,7 @@ async function run() {
       }
     });
 
-    app.post("/transactions", async (req, res) => {
+    app.post("/transactions", verifyFirebaseToken , async (req, res) => {
       const data = req.body;
       const result = await transactionsCollection.insertOne(data);
       res.send(result);
@@ -68,7 +93,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/transactions/:id", async (req, res) => {
+    app.get("/transactions/:id", verifyFirebaseToken , async (req, res) => {
       const id = req.params.id;
       try {
         const transaction = await transactionsCollection.findOne({
@@ -116,6 +141,8 @@ async function run() {
 }
 run().catch(console.dir);
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
-});
+// app.listen(port, () => {
+//   console.log(`Example app listening on port ${port}`);
+// });
+
+module.exports = app;
