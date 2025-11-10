@@ -56,7 +56,7 @@ app.get("/", (req, res) => {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const db = client.db("Asigement-10");
     const transactionsCollection = db.collection("transactions");
 
@@ -87,13 +87,13 @@ async function run() {
       }
     });
 
-    app.post("/transactions",  async (req, res) => {
+    app.post("/transactions", verifyFirebaseToken,  async (req, res) => {
       const data = req.body;
       const result = await transactionsCollection.insertOne(data);
       res.send(result);
     });
 
-    app.patch("/transactions/:id", async (req, res) => {
+    app.patch("/transactions/:id", verifyFirebaseToken , async (req, res) => {
       const id = req.params.id;
       const updatedData = req.body;
       const result = await transactionsCollection.updateOne(
@@ -103,7 +103,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/transactions/:id",  async (req, res) => {
+    app.get("/transactions/:id", verifyFirebaseToken ,  async (req, res) => {
       const id = req.params.id;
       try {
         const transaction = await transactionsCollection.findOne({
@@ -133,7 +133,7 @@ async function run() {
       }
     });
 
-    app.delete("/transactions/:id", async (req, res) => {
+    app.delete("/transactions/:id", verifyFirebaseToken , async (req, res) => {
       const id = req.params.id;
       const result = await transactionsCollection.deleteOne({
         _id: new ObjectId(id),
